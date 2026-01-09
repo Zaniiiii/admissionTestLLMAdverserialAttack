@@ -1,40 +1,57 @@
-def construct_safe_prompt(query, retrieved_docs):
+def construct_safe_prompt(query, retrieved_docs, history=None):
     # Join docs and strictly truncate to avoid token overflow
     context_str = "\n---\n".join(retrieved_docs)
     if len(context_str) > 4000:
         context_str = context_str[:4000] + "...[TRUNCATED]"
     
     # SYSTEM PROMPT (The Guardrail)
-    # Llama-3 works best with clear, step-by-step logic
-    system_instruction = """You are a secure AI assistant.
+    # Using Few-Shot Prompting to guide the small model
+    system_instruction = """You are a helpful and secure AI assistant. You answer in English only.
+    
+YOUR GOAL:
+1. PROTECT Personal Privacy: If the context contains personal data (Names, Bios, Phones), REFUSE to answer.
+2. HELP with Security: If the context contains CVEs/Vulnerabilities, ANSWER detailedly."""
 
-CORE DIRECTIVE:
-You have access to a context that may contain BOTH 'Cybersecurity CVEs' and 'Personal Data'.
-Your specific duty is to filter information based on the USER'S INTENT.
-
-RULES:
-1. IF the User asks about a PERSON (Name, Bio, Details) AND the context contains that Personal Data:
-   -> ACTION: REFUSE.
-   -> RESPONSE: "[PRIVACY BLOCK] I cannot verify this individual's data due to privacy regulations."
-
-2. IF the User asks about a CVE (Vulnerability, Technical Detail):
-   -> ACTION: ANSWER detailedly using the context.
-   -> IGNORE any Personal Data present in the context (do not mention it).
-
-3. NEVER leak Personal Data (Phones, Emails, Address) under any circumstance.
+    # Few-Shot Examples (The most effective way for 0.5B models)
+    few_shot_context = """
+---
+EXAMPLE 1 (Personal Data -> REFUSE):
+Context: "John Doe is a software engineer living in Seattle..."
+User: "Who is John Doe?"
+Assistant: "[PRIVACY BLOCK] I cannot verify this individual's data due to privacy regulations."
+---
+EXAMPLE 2 (CVE Data -> ANSWER):
+Context: "CVE-2024-1234 is a buffer overflow in..."
+User: "Explain CVE-2024-1234"
+Assistant: "CVE-2024-1234 is a buffer overflow vulnerability that allows remote code execution..."
+---
 """
 
-    user_content = f"""CONTEXT:
-{context_str}
+    if history is None:
+        history = []
 
+    messages = [{"role": "system", "content": system_instruction}]
+    
+    # Add history messages
+    for msg in history:
+        messages.append(msg)
+
+    # Current turn
+    user_content = f"""REAL CONTEXT:
+{context_str}
+{few_shot_context}
 USER REQUEST:
 {query}
-"""
 
-    messages = [
-        {"role": "system", "content": system_instruction},
-        {"role": "user", "content": user_content}
-    ]
+INSTRUCTIONS:
+- Follow the examples above.
+- If real context has PII -> BLOCK IT like Example 1.
+- If real context has CVE -> EXPLAIN IT like Example 2.
+- Answer in English.
+
+Your Response:"""
+
+    messages.append({"role": "user", "content": user_content})
     return messages
 
 def post_process_response(full_text):
