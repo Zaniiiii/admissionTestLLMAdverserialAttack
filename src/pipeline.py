@@ -18,13 +18,13 @@ class RAGPipeline:
         if not self.llm:
             self.llm = LLMEngine()
 
-    def run_query(self, query):
+    def run_query(self, query, history=None):
         self.load_model()
         print("Retrieving context...")
         docs = self.vector_store.query(query, k=2)
         
         print("Constructing safe prompt...")
-        prompt = construct_safe_prompt(query, docs)
+        prompt = construct_safe_prompt(query, docs, history)
         
         print("Generating response...")
         raw_output = self.llm.generate(prompt)
