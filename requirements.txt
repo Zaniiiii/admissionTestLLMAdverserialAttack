@@ -1,0 +1,10 @@
+torch
+transformers
+sentence-transformers
+chromadb
+datasets
+accelerate
+bitsandbytes
+huggingface_hub
+python-dotenv
+requests
