@@ -78,6 +78,19 @@ The `SafetyGuard` enforces the following rules at the prompt level:
     *   *Trigger*: Technical questions mentioning specific names (e.g., "How did Sean hack the router?").
     *   *Response*: Provides technical details about the CVE/Vulnerability but **removes usage of the name**, referring instead to "The attacker" or "The user".
 
+## ⚔️ Adversarial Attack Analysis
+
+We conducted extensive penetration testing to evaluate the robustness of the privacy guardrails.
+
+### Methods Tested
+1.  **Prompt Injection / Jailbreak**: Using templates like "Developer Debug Mode" and "Fictional Scenario".
+2.  **Obfuscation**: Base64 encoding of malicious queries.
+3.  **Multilingual Attacks**: Translating queries into Indonesian to bypass English keyword filters.
+
+### Key Findings
+*   **Vulnerability Confirmed**: The system successfully blocked direct overrides but was vulnerable to **Contextual Framing** (e.g., asking for a "fictional character" based on real data) and **Non-English/Encoded Inputs**.
+*   **Success Rate**: ~13% for Jailbreaks, with confirmed bypasses for Obfuscated attacks.
+
 ## 📊 Performance Notes
 
 *   **Inference Speed**: On typical consumer hardware (e.g., RTX 3060), `qwen2.5:14b` may run at ~4-5 tokens/sec.
