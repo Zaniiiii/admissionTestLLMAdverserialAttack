@@ -14,7 +14,3 @@ venv/
 
 # Mac
 .DS_Store
-
-# Project Specific
-data/chroma_db/
-benchmark/
