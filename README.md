@@ -24,6 +24,10 @@ This project implements a Retrieval Augmented Generation (RAG) system specialize
   - `safety_guard.py`: **Core Safety Logic**. Implements the system prompt, privacy blocks, and the "Ghost Rule".
   - `pipeline.py`: Orchestrates retrieval and generation.
   - `vector_store.py`: ChromaDB interface.
+  - `attack/`: **Adversarial Analysis Tools**.
+    - `attack_generator.py`: Generates adversarial prompts.
+    - `attack_runner.py`: Executes attacks and records results.
+    - `attack_generator_obfuscated.py`: Handling for obfuscated attacks.
 - `benchmark/`: Evaluation suite.
   - `runner.py`: Benchmarking script for accuracy and refusal rates.
   - `prompts.json`: Test cases.
@@ -59,6 +63,18 @@ python src/main.py
 
 *(Note: Ensure Ollama is running in the background)*
 
+### Interactive Testing
+To manually test the RAG retrieval and generation with your own queries:
+```bash
+python test_rag_retrieval.py
+```
+
+### Privacy Verification
+To run a specific set of privacy-related queries to verify the "Ghost Rule" and PII blocking:
+```bash
+python verify_rag_content.py
+```
+
 ### Benchmarking
 To measure performance and safety compliance:
 
@@ -80,7 +96,7 @@ The `SafetyGuard` enforces the following rules at the prompt level:
 
 ## ⚔️ Adversarial Attack Analysis
 
-We conducted extensive penetration testing to evaluate the robustness of the privacy guardrails.
+We conducted extensive penetration testing to evaluate the robustness of the privacy guardrails. The tools used for this analysis are included in `src/attack/`.
 
 ### Methods Tested
 1.  **Prompt Injection / Jailbreak**: Using templates like "Developer Debug Mode" and "Fictional Scenario".
