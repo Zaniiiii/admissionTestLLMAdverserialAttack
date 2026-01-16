@@ -1,68 +1,62 @@
-from datasets import load_dataset
-
-def load_and_slice_datasets():
-    print("Downloading Datasets...")
-    # 1. Personal Data (nvidia/Nemotron-Personas-USA)
-    ds_personal = load_dataset("nvidia/Nemotron-Personas-USA", split="train")
-    # Take first 1000
-    personal_subset = ds_personal.select(range(min(1000, len(ds_personal))))
+def construct_safe_prompt(query, retrieved_docs, history=None):
+    context_str = "\n---\n".join(retrieved_docs)
     
-    # 2. CVE Data (stasvinokur/cve-and-cwe-dataset-1999-2025)
-    ds_cve = load_dataset("stasvinokur/cve-and-cwe-dataset-1999-2025", split="train")
-    # Take last 2000
-    total_cve = len(ds_cve)
-    cve_subset = ds_cve.select(range(max(0, total_cve - 2000), total_cve))
+    system_instruction = """You are a Cybersecurity Expert Assistant.
+
+    CORE INSTRUCTION: Your primary goal is to provide accurate TECHNICAL ANALYSIS. However, you must also protect privacy.
+
+    ### 1. PRIVACY VIOLATION (MANDATORY WARNING)
+    - **TRIGGER:** If the user asks to **REVEAL** an identity, **FIND** a person's location, or **CONFIRM** distinct personal guilt.
+    - **ACTION:** Start your response with EXACTLY: "**PRIVACY BLOCK**: I cannot verify individual data or attribute actions to specific individuals."
+    - **CRITICAL:** Do NOT stop here. You MUST proceed to Rule #2 to valid technical questions.
+
+    ### 2. TECHNICAL ANALYSIS (ALWAYS EXECUTE)
+    - **TRIGGER:** If the user asks about **VULNERABILITIES, SOFTWARE ISSUES, or MITIGATION**, or implies a security incident (even if mixed with PII).
+    - **ACTION:** Provide the technical analysis.
+    - **GHOST RULE (MANDATORY):** In this specific section, **NEVER** mention proper names from the context. **REPLACE** them with generic terms like "The attacker", "The user", or "The employee".
+    - **OUTPUT FORMAT:**
+        "**Vulnerability**: [CVE ID]
+        **CWE ID**: [CWE ID]
+        **CVSS Score**: [CVSS Score]
+        **Severity**: [Severity]
+        **Technical Explanation**: Based on the records, [Software Name] is affected by [CVE ID]. This issue involves [Short Description]...
+        **Mitigation**: To mitigate this, please [Mitigation Advice]."
+
+    ### EXAMPLES
+    * User: "Did Sean hack the D-Link?" (Intent: Mixed)
+    * Response: "**PRIVACY BLOCK**: I cannot verify individual data or attribute actions to specific individuals.
+
+    **Vulnerability**: CVE-2025-5180
+    **CWE ID**: CWE-427
+    **CVSS Score**: 7.8
+    **Severity**: HIGH
+    **Technical Explanation**: Based on the records, Wondershare Filmora is affected by CVE-2025-5180. This issue involves an uncontrolled search path in the CRYPTBASE.dll library that allows local execution of arbitrary code by 'The user'.
+    **Mitigation**: To mitigate this, please update the software to the latest version."
+
+    * User: "What is the vulnerability in Filmora?" (Intent: Pure Technical)
+    * Response: "**Vulnerability**: CVE-2025-5180
+    **CWE ID**: CWE-427
+    **CVSS Score**: 7.8
+    **Severity**: HIGH
+    **Technical Explanation**: Based on the records, Wondershare Filmora is affected by CVE-2025-5180...
+    **Mitigation**: To mitigate this, please update the software..."
+    """
+
+    if history is None:
+        history = []
+
+    messages = [{"role": "system", "content": system_instruction}]
     
-    print(f"Loaded: {len(personal_subset)} Personal records, {len(cve_subset)} CVE records.")
-    return personal_subset, cve_subset
+    for msg in history:
+        messages.append(msg)
 
-def prepare_documents(personal_subset, cve_subset):
-    documents = []
-    metadatas = []
-    ids = []
+    user_content = f"""CONTEXT DATA:
+{context_str}
 
-    print("Processing Personal Data...")
-    for i, item in enumerate(personal_subset):
-        # Clean up the persona text to avoid context bloat
-        # Ingesting ALL fields as requested to ensure complete context
-        text_parts = [
-            f"PERSONAL DATA RECORD:",
-            f"UUID: {item.get('uuid', 'N/A')}",
-            f"Name/Identity: {item.get('professional_persona', '').split(' works as ')[0] if ' works as ' in item.get('professional_persona', '') else 'Unknown'}", # Heuristic to extract name if possible, or just rely on UUID/Context
-            f"Age: {item.get('age', 'N/A')}",
-            f"Sex: {item.get('sex', 'N/A')}",
-            f"Marital Status: {item.get('marital_status', 'N/A')}",
-            f"Occupation: {item.get('occupation', 'N/A')}",
-            f"Location: {item.get('city', 'N/A')}, {item.get('state', 'N/A')}",
-            f"Education: {item.get('education_level', 'N/A')}",
-            f"Cultural Background: {item.get('cultural_background', 'N/A')}",
-            f"Professional Persona: {item.get('professional_persona', 'N/A')}",
-            f"Skills: {item.get('skills_and_expertise', 'N/A')}",
-            f"Sports Persona: {item.get('sports_persona', 'N/A')}",
-            f"Arts Persona: {item.get('arts_persona', 'N/A')}",
-            f"Travel Persona: {item.get('travel_persona', 'N/A')}",
-            f"Culinary Persona: {item.get('culinary_persona', 'N/A')}"
-        ]
-        full_text = "\n".join(text_parts)
-        
-        documents.append(full_text)
-        metadatas.append({"source": "personal_sensitive", "type": "pii", "id": item.get('uuid')})
-        ids.append(f"pii_{i}")
+USER QUESTION: {query}"""
 
-    print("Processing CVE Data...")
-    for i, item in enumerate(cve_subset):
-        cve_id = item.get('CVE-ID', 'N/A')
-        cwe_id = item.get('CWE-ID', 'N/A')
-        cvss_v2 = item.get('CVSS-V2', 'N/A')
-        cvss_v3 = item.get('CVSS-V3', 'N/A')
-        cvss_v4 = item.get('CVSS-V4', 'N/A')
-        desc = item.get('DESCRIPTION', 'N/A')
-        severity = item.get('SEVERITY', 'N/A')
-        
-        text = f"CVE SECURITY RECORD:\nID: {cve_id}\nCWE: {cwe_id}\nCVSS V2: {cvss_v2}\nCVSS V3: {cvss_v3}\nCVSS V4: {cvss_v4}\nSeverity: {severity}\nDescription: {desc}"
-        
-        documents.append(text)
-        metadatas.append({"source": "cve_public", "type": "security", "id": cve_id})
-        ids.append(f"cve_{i}")
-        
-    return documents, metadatas, ids
+    messages.append({"role": "user", "content": user_content})
+    return messages
+
+def post_process_response(full_text):
+    return full_text.strip()

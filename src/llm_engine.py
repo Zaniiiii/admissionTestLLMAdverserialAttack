@@ -11,7 +11,7 @@ class LLMEngine:
             print(f"Warning: Error: {e}")
             self.client = None
 
-    def generate(self, messages, max_new_tokens=1024): # NAIKKAN KE 1024 atau 2048
+    def generate(self, messages, max_new_tokens=1024): 
         if not self.client:
             return "Error: Ollama client not initialized."
             
@@ -30,10 +30,9 @@ class LLMEngine:
                     }
                 )
                 
-                # --- Speed Logging ---
                 try:
                     eval_count = response.get('eval_count', 0)
-                    eval_duration = response.get('eval_duration', 0) # in nanoseconds
+                    eval_duration = response.get('eval_duration', 0) 
                     if eval_duration > 0:
                         tps = eval_count / (eval_duration / 1e9)
                         print(f"   [LLM Stats] Speed: {tps:.2f} t/s | Tokens: {eval_count} | Duration: {eval_duration/1e9:.2f}s")
@@ -41,7 +40,6 @@ class LLMEngine:
                         print("   [LLM Stats] Duration unavailable from Ollama.")
                 except Exception as stats_err:
                     print(f"   [LLM Stats] Error calculating speed: {stats_err}")
-                # ---------------------
 
                 return response['message']['content']
             except Exception as e:

@@ -26,16 +26,15 @@ class VectorStore:
         )
         print("Storage Complete!")
 
-    def query(self, query_text, k=5, where=None): # Ubah k=3 menjadi k=5
+    def query(self, query_text, k=5, where=None):
         query_embedding = self.embedder.encode([query_text]).tolist()
         
         query_args = {
             "query_embeddings": query_embedding,
-            "n_results": k # Gunakan k yang baru
+            "n_results": k
         }
         if where:
             query_args["where"] = where
             
         results = self.collection.query(**query_args)
-        # Return both documents and metadatas
         return results['documents'][0], results['metadatas'][0]
